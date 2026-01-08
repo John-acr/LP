@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Maze Key Escape</title>
+<style>
+  body {
+    margin: 0;
+    background: #0e1117;
+    color: #e6edf3;
+    font-family: system-ui, Arial;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  canvas {
+    background: #0e1117;
+    border: 2px solid #30363d;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game" width="480" height="480"></canvas>
+
+<script>
+"use strict";
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const TILE = 32;
+const ROWS = 15;
+const COLS = 15;
+const TIME_LIMIT = 30;
+
+let level = [];
+let player;
+let keyPos;
+let exitPos;
+let timeLeft;
+let lastTime = performance.now();
+
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function generateLevel() {
+  level = Array.from({ length: ROWS }, () =>
+    Array.from({ length: COLS }, () => 1)
+  );
+
+  for (let y = 1; y < ROWS - 1; y++) {
+    for (let x = 1; x < COLS - 1; x++) {
+      level[y][x] = Math.random() < 0.7 ? 0 : 1;
+    }
+  }
+
+  player = { x: 1, y: 1, hasKey: false };
+  level[1][1] = 0;
+
+  keyPos = { x: rand(2, COLS - 3), y: rand(2, ROWS - 3) };
+  exitPos = { x: COLS - 2, y: ROWS - 2 };
+
+  carvePath(1, 1, keyPos.x, keyPos.y);
+  carvePath(keyPos.x, keyPos.y, exitPos.x, exitPos.y);
+
+  timeLeft = TIME_LIMIT;
+  lastTime = performance.now();
+}
+
+function carvePath(x1, y1, x2, y2) {
+  let x = x1;
+  let y = y1;
+  while (x !== x2 || y !== y2) {
+    level[y][x] = 0;
+    if (x < x2) x++;
+    else if (x > x2) x--;
+    else if (y < y2) y++;
+    else if (y > y2) y--;
+  }
+  level[y2][x2] = 0;
+}
+
+function updateTime() {
+  const now = performance.now();
+  const delta = (now - lastTime) / 1000;
+  lastTime = now;
+  timeLeft -= delta;
+
+  if (timeLeft <= 0) {
+    generateLevel();
+  }
+}
+
+function movePlayer(dx, dy) {
+  const nx = player.x + dx;
+  const ny = player.y + dy;
+
+  if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) return;
+  if (level[ny][nx] === 1) return;
+
+  player.x = nx;
+  player.y = ny;
+
+  if (!player.hasKey && nx === keyPos.x && ny === keyPos.y) {
+    player.hasKey = true;
+  }
+
+  if (player.hasKey && nx === exitPos.x && ny === exitPos.y) {
+    generateLevel();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (level[y][x] === 1) {
+        ctx.fillStyle = "#30363d";
+        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+      }
+    }
+  }
+
+  if (!player.hasKey) {
+    ctx.fillStyle = "#f2cc60";
+    ctx.fillRect(keyPos.x * TILE + 8, keyPos.y * TILE + 8, 16, 16);
+  }
+
+  ctx.fillStyle = player.hasKey ? "#2ea043" : "#8b949e";
+  ctx.fillRect(exitPos.x * TILE + 4, exitPos.y * TILE + 4, 24, 24);
+
+  ctx.fillStyle = "#58a6ff";
+  ctx.fillRect(player.x * TILE + 4, player.y * TILE + 4, 24, 24);
+
+  ctx.fillStyle = "#e6edf3";
+  ctx.fillText("Tiempo: " + Math.ceil(timeLeft), 10, 15);
+}
+
+function gameLoop() {
+  updateTime();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener("keydown", e => {
+  switch (e.key.toLowerCase()) {
+    case "w":
+    case "arrowup": movePlayer(0, -1); break;
+    case "s":
+    case "arrowdown": movePlayer(0, 1); break;
+    case "a":
+    case "arrowleft": movePlayer(-1, 0); break;
+    case "d":
+    case "arrowright": movePlayer(1, 0); break;
+    case "r": generateLevel(); break;
+  }
+});
+
+generateLevel();
+gameLoop();
+</script>
+
+</body>
+</html>
